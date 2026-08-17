@@ -5,18 +5,23 @@ const buscarJauServe = require('./jauserve');
 const buscarSavegnago = require('./savegnago');
 const buscarTenda = require('./tenda');
 
-// Variáveis de Ambiente com tratamento para string vazia
-const SUPABASE_URL = (process.env.SUPABASE_URL && process.env.SUPABASE_URL.trim() !== '') 
-  ? process.env.SUPABASE_URL.trim() 
-  : 'https://dqrcdgxsxpdpvukhmdry.supabase.co';
+// Trata e limpa a URL removendo aspas extras, espaços e quebras de linha
+let rawUrl = process.env.SUPABASE_URL || 'https://dqrcdgxsxpdpvukhmdry.supabase.co';
+rawUrl = rawUrl.replace(/["']/g, '').trim();
 
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+  rawUrl = `https://${rawUrl}`;
+}
+
+const SUPABASE_URL = rawUrl;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY.trim() : '';
 
 if (!SUPABASE_KEY) {
   console.error("❌ ERRO: A variável de ambiente SUPABASE_SERVICE_ROLE_KEY não foi configurada.");
   process.exit(1);
 }
 
+console.log(`🔗 Conectando ao Supabase em: ${SUPABASE_URL}`);
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 (async () => {
