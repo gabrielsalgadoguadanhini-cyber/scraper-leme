@@ -1,11 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 
 const buscarCovabra = require('./covabra');
 const buscarJauServe = require('./jauserve');
 const buscarSavegnago = require('./savegnago');
 const buscarTenda = require('./tenda');
 
-// Trata e limpa a URL do Supabase
 let rawUrl = process.env.SUPABASE_URL || 'https://dqrcdgxsxpdpvukhmdry.supabase.co';
 rawUrl = rawUrl.replace(/["']/g, '').trim();
 
@@ -21,10 +21,11 @@ if (!SUPABASE_KEY) {
   process.exit(1);
 }
 
-// Desativa o recurso de Realtime WebSocket que exige a lib ws no Node < 22
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
-  realtime: { enabled: false }
+  realtime: {
+    transport: WebSocket
+  }
 });
 
 (async () => {
