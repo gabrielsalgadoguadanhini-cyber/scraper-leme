@@ -5,8 +5,11 @@ const buscarJauServe = require('./jauserve');
 const buscarSavegnago = require('./savegnago');
 const buscarTenda = require('./tenda');
 
-// Variáveis de Ambiente (Configuradas no GitHub Actions ou arquivo .env)
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://dqrcdgxsxpdpvukhmdry.supabase.co';
+// Variáveis de Ambiente com tratamento para string vazia
+const SUPABASE_URL = (process.env.SUPABASE_URL && process.env.SUPABASE_URL.trim() !== '') 
+  ? process.env.SUPABASE_URL.trim() 
+  : 'https://dqrcdgxsxpdpvukhmdry.supabase.co';
+
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_KEY) {
