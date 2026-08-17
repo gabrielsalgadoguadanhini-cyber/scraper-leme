@@ -5,7 +5,7 @@ const buscarJauServe = require('./jauserve');
 const buscarSavegnago = require('./savegnago');
 const buscarTenda = require('./tenda');
 
-// Trata e limpa a URL removendo aspas extras, espaços e quebras de linha
+// Trata e limpa a URL do Supabase
 let rawUrl = process.env.SUPABASE_URL || 'https://dqrcdgxsxpdpvukhmdry.supabase.co';
 rawUrl = rawUrl.replace(/["']/g, '').trim();
 
@@ -21,8 +21,11 @@ if (!SUPABASE_KEY) {
   process.exit(1);
 }
 
-console.log(`🔗 Conectando ao Supabase em: ${SUPABASE_URL}`);
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Desativa o recurso de Realtime WebSocket que exige a lib ws no Node < 22
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false },
+  realtime: { enabled: false }
+});
 
 (async () => {
   try {
@@ -30,7 +33,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     console.log("🚀 INICIANDO RASPAGEM DOS 4 MERCADOS DE LEME-SP");
     console.log("==================================================\n");
 
-    // 1. Coleta os dados de cada supermercado
     console.log("--- 1/4: BUSCANDO COVABRA ---");
     const covabra = typeof buscarCovabra === 'function' ? await buscarCovabra() : [];
 
@@ -43,7 +45,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     console.log("\n--- 4/4: BUSCANDO TENDA ATACADO ---");
     const tenda = typeof buscarTenda === 'function' ? await buscarTenda() : [];
 
-    // Unifica todos os produtos em um único array
     const todosProdutos = [
       ...covabra,
       ...jauServe,
@@ -62,7 +63,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     console.log("⏳ Limpando banco de dados para atualização...");
     
-    // Limpa os registros antigos da tabela 'produtos'
     const { error: deleteError } = await supabase
       .from('produtos')
       .delete()
@@ -75,7 +75,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     console.log("🚀 Enviando novos produtos para o Supabase...");
 
-    // Insere os produtos novos em lotes de 500 itens
     const TAMANHO_LOTE = 500;
     for (let i = 0; i < todosProdutos.length; i += TAMANHO_LOTE) {
       const lote = todosProdutos.slice(i, i + TAMANHO_LOTE);
