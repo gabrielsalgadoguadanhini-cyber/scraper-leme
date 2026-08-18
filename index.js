@@ -23,9 +23,7 @@ if (!SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
-  realtime: {
-    transport: WebSocket
-  }
+  realtime: { transport: WebSocket }
 });
 
 (async () => {
@@ -62,31 +60,31 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
       return;
     }
 
-console.log("⏳ Limpando banco de dados para atualização...");
+    console.log("⏳ Limpando banco de dados para atualização...");
     
-    // Deleta registros sem usar .neq('id', 0) para evitar problemas se o ID for UUID ou string
+    // Limpa a tabela antes de inserir novos dados
     const { error: deleteError } = await supabase
       .from('produtos')
       .delete()
-      .gte('id', 0); // Ajuste conforme o tipo do ID (ou use uma condição válida)
+      .neq('id', 0);
 
     if (deleteError) {
-      console.error("❌ Erro ao limpar tabela no Supabase:", deleteError);
+      console.error("❌ Erro ao limpar tabela no Supabase:", deleteError.message);
+      process.exit(1);
     }
 
     console.log("🚀 Enviando novos produtos para o Supabase...");
 
-    const TAMANHO_LOTE = 200; // Reduz o lote para evitar timeouts
+    const TAMANHO_LOTE = 500;
     for (let i = 0; i < todosProdutos.length; i += TAMANHO_LOTE) {
       const lote = todosProdutos.slice(i, i + TAMANHO_LOTE);
       
-      const { data, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('produtos')
-        .insert(lote)
-        .select();
+        .insert(lote);
 
       if (insertError) {
-        console.error(`❌ Erro detalhado no lote ${i}:`, JSON.stringify(insertError, null, 2));
+        console.error(`❌ Erro ao inserir lote de ${i} até ${i + lote.length}:`, insertError.message);
       } else {
         console.log(`   ✓ Lote enviado: ${i + lote.length}/${todosProdutos.length} produtos.`);
       }
