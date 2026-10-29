@@ -1,11 +1,17 @@
+// tenda.js - Tenda Atacado (API pública do site, filial Leme = store 4).
+// Correção: a API devolve `total_pages` no topo da resposta; o código antigo lia `products.pages`
+// (inexistente) e por isso só pegava a 1ª página de cada categoria.
 const axios = require('axios');
+const { mapearTenda } = require('./lib/mapear');
 
-const STORE_ID = '4'; // Filial Leme/Padrão
+const STORE_ID = '4';
+const PAUSA_MS = 300;
+const esperar = ms => new Promise(r => setTimeout(r, ms));
 
 const client = axios.create({
   baseURL: 'https://api.tendaatacado.com.br/api/public',
   headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'User-Agent': 'ComparaKi-TCC/1.0 (estudo academico; contato via mercado)',
     'Accept': 'application/json, text/plain, */*',
     'Origin': 'https://www.tendaatacado.com.br',
     'Referer': 'https://www.tendaatacado.com.br/',
@@ -102,84 +108,44 @@ const categoriasManuais = [
   { dep: 'Bazar', id: 211, name: 'Automotivo', link: 'automotivo' }
 ];
 
-function extrairNomeEPreco(listaBruta) {
-  if (!Array.isArray(listaBruta)) return [];
-
-  return listaBruta.map(item => ({
-    nome: item.name || item.title || 'Sem Nome',
-    preco: item.price || item.sellPrice || item.finalPrice || 0
-  }));
-}
-
-async function buscarProdutosPagina(subcat, page) {
-  try {
-    const response = await client.get(`/store/category/${subcat.id}/products`, {
-      params: {
-        'query[link]': subcat.link,
-        page: page,
-        order: 'relevance'
-      }
-    });
-
-    return response.data;
-  } catch (error) {
-    return null;
+async function buscarPagina(subcat, page) {
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const r = await client.get(`/store/category/${subcat.id}/products`, {
+        params: { 'query[link]': subcat.link, page, order: 'relevance' }
+      });
+      return r.data;
+    } catch (erro) {
+      const status = erro.response && erro.response.status;
+      if ((status && status < 500 && status !== 429) || tentativa === 3) return null;
+      await esperar(1000 * 4 ** (tentativa - 1));
+    }
   }
+  return null;
 }
 
 async function buscarTenda() {
-  console.log('=== INICIANDO SCRAPER TENDA ATACADO ===\n');
-  const todosOsProdutos = [];
-  let subcategoriasComSucesso = 0;
-
+  console.log('=== TENDA ATACADO ===');
+  const coletadoEm = new Date().toISOString();
+  const saida = [];
   for (const sub of categoriasManuais) {
-    console.log(`[+] [${sub.dep}] ${sub.name} (ID: ${sub.id})...`);
-    let page = 1;
-    let temMaisPaginas = true;
-    let totalSubcat = 0;
-
-    while (temMaisPaginas) {
-      const resData = await buscarProdutosPagina(sub, page);
-
-      const listaBruta = resData?.products?.content || (Array.isArray(resData?.products) ? resData.products : []);
-      const totalPaginas = resData?.products?.pages || resData?.products?.totalPages || 1;
-
-      if (Array.isArray(listaBruta) && listaBruta.length > 0) {
-        const produtosFiltrados = extrairNomeEPreco(listaBruta);
-
-       produtosFiltrados.forEach(p => {
-    todosOsProdutos.push({
-        preco: p.preco,
-        nome: p.nome,
-        mercado: "Tenda Atacado",
-        link: "https://www.tendaatacado.com.br"
-    });
-});
-
-        totalSubcat += produtosFiltrados.length;
-
-        if (page < totalPaginas) {
-          page++;
-        } else {
-          temMaisPaginas = false;
-        }
-      } else {
-        temMaisPaginas = false;
+    let page = 1, totalPaginas = 1, totalSub = 0;
+    do {
+      const dados = await buscarPagina(sub, page);
+      const lista = Array.isArray(dados && dados.products) ? dados.products : (dados && dados.products && dados.products.content) || [];
+      totalPaginas = Number(dados && (dados.total_pages || (dados.products && dados.products.totalPages))) || 1;
+      for (const p of lista) {
+        const linha = mapearTenda(p, coletadoEm);
+        if (linha) { saida.push(linha); totalSub++; }
       }
-
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
-
-    if (totalSubcat > 0) {
-      subcategoriasComSucesso++;
-      console.log(`    ✓ Total capturado: ${totalSubcat} produtos\n`);
-    } else {
-      console.log(`    [-] ID ${sub.id} não possui produtos nesta loja\n`);
-    }
+      if (!lista.length) break;
+      page++;
+      await esperar(PAUSA_MS);
+    } while (page <= totalPaginas);
+    console.log(`[Tenda] ${sub.dep} > ${sub.name}: ${totalSub} produtos`);
   }
-
-  console.log(`=== TENDA ATACADO CONCLUÍDO: ${todosOsProdutos.length} produtos coletados. ===\n`);
-  return todosOsProdutos;
+  console.log(`=== TENDA: ${saida.length} produtos ===`);
+  return saida;
 }
 
 module.exports = buscarTenda;

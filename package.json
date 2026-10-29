@@ -1,4 +1,10 @@
 {
+  "name": "scraper-leme",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": { "node": ">=20" },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
     "axios": "^1.6.8",

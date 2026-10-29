@@ -1,3 +1,7 @@
+// jauserve.js - Jaú Serve (HTML do site, Salesforce Commerce).
+// LIMITAÇÃO CONHECIDA (29/10/2026): sem uma loja selecionada na sessão, a busca devolve 0 produtos.
+// O index.js mantém os preços anteriores quando a coleta vem vazia. Solução recomendada:
+// receber a planilha do próprio mercado (connectors/partner-csv.js no projeto do app).
 const axios = require('axios');
 const cheerio = require('cheerio');
 
@@ -148,7 +152,7 @@ async function buscarProdutosPagina(q, start = 0, sz = 36) {
   try {
     const response = await client.get('/Search-UpdateGrid', {
       params: {
-        q: encodeURIComponent(removerAcentos(q)),
+        q: removerAcentos(q), // o axios já codifica os parâmetros
         start: start,
         sz: sz,
         pmin: '0.01'
@@ -164,6 +168,7 @@ async function buscarProdutosPagina(q, start = 0, sz = 36) {
 async function buscarJauServe() {
   console.log('=== INICIANDO SCRAPER JAÚ SERVE ===\n');
   const todosOsProdutos = [];
+  const coletadoEm = new Date().toISOString();
   let categoriasComSucesso = 0;
 
   for (const cat of categoriasJauServe) {
@@ -185,7 +190,8 @@ async function buscarJauServe() {
         preco: p.preco,
         nome: p.nome,
         mercado: "Jaú Serve",
-        link: "https://www.jauserve.com.br"
+        link: "https://www.jauserve.com.br",
+        coletado_em: coletadoEm
     });
           });
 
