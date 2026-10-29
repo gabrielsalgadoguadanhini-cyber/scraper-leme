@@ -2,18 +2,23 @@ name: Automacao Scraper Leme
 
 on:
   schedule:
-    - cron: '0 9 * * *' # Roda todos os dias às 06:00 (Horário de Brasília)
-  workflow_dispatch: # Permite rodar manualmente no painel
+    - cron: '0 9 * * *' # todos os dias às 06:00 (Brasília)
+  workflow_dispatch: # permite rodar manualmente no painel
+
+concurrency:
+  group: scraper-leme # nunca roda duas coletas ao mesmo tempo
+  cancel-in-progress: false
 
 jobs:
   executar:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install
+      - run: npm install --no-audit --no-fund
       - run: node index.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
